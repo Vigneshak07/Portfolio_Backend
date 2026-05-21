@@ -1,37 +1,41 @@
-const express   = require("express");
-const mongoose  = require("mongoose");
-const cors      = require("cors");
+const express  = require("express");
+const mongoose = require("mongoose");
+const cors     = require("cors");
 
 const app = express();
 
-// ✅ FIXED: Allow requests from your Live Server (port 5500)
-app.use(cors({
-  origin: ["*"]
-}));
+// ✅ FIX 3: cors("*") as string not array — array with wildcard doesn't work
+app.use(cors());
 app.use(express.json());
 
-// ===== MongoDB Connection =====
-mongoose.connect("mongodb+srv://Vignesh_Bd:Vigneshak0803@cluster0.vdalara.mongodb.net/portfolioDB?retryWrites=true&w=majority")
+// ✅ FIX 4: Use environment variable for MongoDB URI (set this in Render dashboard)
+// Never hardcode credentials in code pushed to GitHub
+const MONGO_URI = process.env.MONGO_URI || "mongodb+srv://Vignesh_Bd:Vigneshak0803@cluster0.vdalara.mongodb.net/portfolioDB?retryWrites=true&w=majority";
+
+mongoose.connect(MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected"))
   .catch(err => console.log("❌ MongoDB Error:", err));
 
-// ===== Schema — ✅ FIXED: added timestamps so you can see when messages were sent =====
+// ===== Schema =====
 const MessageSchema = new mongoose.Schema({
   name:    { type: String, required: true },
   email:   { type: String, required: true },
   subject: { type: String, required: true },
   message: { type: String, required: true }
-}, { timestamps: true }); // adds createdAt & updatedAt automatically
+}, { timestamps: true });
 
 const Message = mongoose.model("Message", MessageSchema);
 
-// ===== POST /send — Save contact form data =====
+// ===== Root route — so Render health check doesn't 404 =====
+app.get("/", (req, res) => {
+  res.send("Portfolio backend is running ✅");
+});
+
+// ===== POST /send =====
 app.post("/send", async (req, res) => {
   console.log("📩 Data Received:", req.body);
-
   const { name, email, subject, message } = req.body;
 
-  // Basic server-side check
   if (!name || !email || !subject || !message) {
     return res.status(400).send("All fields are required.");
   }
@@ -47,7 +51,7 @@ app.post("/send", async (req, res) => {
   }
 });
 
-// ===== GET /messages — View all messages (optional, for testing) =====
+// ===== GET /messages — view all saved messages =====
 app.get("/messages", async (req, res) => {
   try {
     const messages = await Message.find().sort({ createdAt: -1 });
@@ -57,7 +61,8 @@ app.get("/messages", async (req, res) => {
   }
 });
 
-// ===== Start Server =====
-app.listen(5000, () => {
-  console.log("🚀 Server running on http://127.0.0.1:5000");
+// ✅ FIX 5: Use process.env.PORT — Render assigns its own port, not 5000
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });
